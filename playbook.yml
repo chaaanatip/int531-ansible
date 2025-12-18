@@ -18,20 +18,20 @@
     # ===== VM config =====
     vm_template: ubuntu-cloud-template-v2
     vm_name: test-ansible-vm
-    vm_target_ip: 10.13.104.90
+    vm_target_ip: 10.13.104.92
     vm_cidr: 24
     vm_gw: 10.13.104.254
-    ansible_ssh_key_path: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519"  # dynamic path
+    ansible_ssh_key_path: "{{ lookup('env', 'HOME') | default(lookup('env', 'USERPROFILE'), true) }}/.ssh/id_ed25519" # dynamic path
 
   tasks:
     - name: Clone VM from template
       community.proxmox.proxmox_kvm:
-        api_host: "{{ proxmox_api_host }}"
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        node: "{{ proxmox_node }}"
-        clone: "{{ vm_template }}"
-        name: "{{ vm_name }}"
+        api_host: '{{ proxmox_api_host }}'
+        api_user: '{{ proxmox_api_user }}'
+        api_password: '{{ proxmox_api_password }}'
+        node: '{{ proxmox_node }}'
+        clone: '{{ vm_template }}'
+        name: '{{ vm_name }}'
         storage: local-lvm
         format: qcow2
         timeout: 900
@@ -44,25 +44,25 @@
 
     - name: Get VM ID by name if not in response
       community.proxmox.proxmox_vm_info:
-        api_host: "{{ proxmox_api_host }}"
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        node: "{{ proxmox_node }}"
-        name: "{{ vm_name }}"
+        api_host: '{{ proxmox_api_host }}'
+        api_user: '{{ proxmox_api_user }}'
+        api_password: '{{ proxmox_api_password }}'
+        node: '{{ proxmox_node }}'
+        name: '{{ vm_name }}'
       register: vm_info
       when: new_vm.vmid is not defined
 
     - name: Set vmid fact
       ansible.builtin.set_fact:
-        vm_id: "{{ new_vm.vmid | default(vm_info.proxmox_vms[0].vmid) }}"
+        vm_id: '{{ new_vm.vmid | default(vm_info.proxmox_vms[0].vmid) }}'
 
     - name: Configure cloud-init (user & SSH key)
       community.proxmox.proxmox_kvm:
-        api_host: "{{ proxmox_api_host }}"
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ vm_id }}"
+        api_host: '{{ proxmox_api_host }}'
+        api_user: '{{ proxmox_api_user }}'
+        api_password: '{{ proxmox_api_password }}'
+        node: '{{ proxmox_node }}'
+        vmid: '{{ vm_id }}'
         ciuser: ansible
         cipassword: ansible
         sshkeys: "{{ lookup('file', ansible_ssh_key_path + '.pub') }}"
@@ -70,21 +70,21 @@
           - 8.8.8.8
           - 8.8.4.4
         ipconfig:
-          ipconfig0: "ip={{ vm_target_ip }}/{{ vm_cidr }},gw={{ vm_gw }}"
+          ipconfig0: 'ip={{ vm_target_ip }}/{{ vm_cidr }},gw={{ vm_gw }}'
         update: yes
 
     - name: Start VM
       community.proxmox.proxmox_kvm:
-        api_host: "{{ proxmox_api_host }}"
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ vm_id }}"
+        api_host: '{{ proxmox_api_host }}'
+        api_user: '{{ proxmox_api_user }}'
+        api_password: '{{ proxmox_api_password }}'
+        node: '{{ proxmox_node }}'
+        vmid: '{{ vm_id }}'
         state: started
 
     - name: Wait for SSH to be available
       ansible.builtin.wait_for:
-        host: "{{ vm_target_ip }}"
+        host: '{{ vm_target_ip }}'
         port: 22
         delay: 10
         timeout: 300
@@ -92,11 +92,11 @@
     - name: Register new VM as dynamic host
       ansible.builtin.add_host:
         name: new_vm
-        ansible_host: "{{ vm_target_ip }}"
+        ansible_host: '{{ vm_target_ip }}'
         ansible_user: ansible
-        ansible_ssh_private_key_file: "{{ ansible_ssh_key_path }}"
+        ansible_ssh_private_key_file: '{{ ansible_ssh_key_path }}'
         ansible_python_interpreter: /usr/bin/python3
-        ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
         groups: provisioned
 
 ###############################################
@@ -109,7 +109,7 @@
 
   vars:
     app_dir: /opt/myapp
-    app_repo: "https://github.com/chaaanatip/int531-demo.git"
+    app_repo: 'https://github.com/chaaanatip/int531-demo.git'
 
   tasks:
     - name: Wait for cloud-init to finish
@@ -193,42 +193,42 @@
 
     - name: Ensure app directory exists
       ansible.builtin.file:
-        path: "{{ app_dir }}"
+        path: '{{ app_dir }}'
         state: directory
         owner: ansible
         group: ansible
-        mode: "0755"
+        mode: '0755'
 
     - name: Clone app repository
       ansible.builtin.git:
-        repo: "{{ app_repo }}"
-        dest: "{{ app_dir }}"
+        repo: '{{ app_repo }}'
+        dest: '{{ app_dir }}'
         version: main
         force: yes
         update: yes
 
     - name: Check if .env.example exists
       ansible.builtin.stat:
-        path: "{{ app_dir }}/.env.example"
+        path: '{{ app_dir }}/.env.example'
       register: env_example
 
     - name: Create .env file from example if exists
       ansible.builtin.copy:
-        src: "{{ app_dir }}/.env.example"
-        dest: "{{ app_dir }}/.env"
+        src: '{{ app_dir }}/.env.example'
+        dest: '{{ app_dir }}/.env'
         remote_src: yes
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         force: no
       when: env_example.stat.exists
 
     - name: Create .env file with default values if example not exists
       ansible.builtin.copy:
-        dest: "{{ app_dir }}/.env"
+        dest: '{{ app_dir }}/.env'
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         content: |
           TZ=Asia/Bangkok
 
@@ -255,7 +255,7 @@
     - name: Debug - List services in docker-compose
       ansible.builtin.shell: docker-compose config --services
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       register: services_list
 
     - name: Debug - Show available services
@@ -265,23 +265,23 @@
     - name: Clean up old containers and volumes
       ansible.builtin.shell: docker-compose down -v
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       failed_when: false
 
     - name: Build app with no cache
       ansible.builtin.shell: docker-compose build --no-cache app
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
 
     - name: Start database first
       ansible.builtin.shell: docker-compose up -d mariadb
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
 
     - name: Wait for database to be healthy
       ansible.builtin.shell: docker-compose ps mariadb | grep -i healthy
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       register: db_health
       until: db_health.rc == 0
       retries: 20
@@ -290,7 +290,7 @@
     - name: Run app with docker-compose
       ansible.builtin.shell: docker-compose up -d
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
 
     - name: Wait for all services to start
       ansible.builtin.pause:
@@ -299,7 +299,7 @@
     - name: Check container status
       ansible.builtin.shell: docker-compose ps
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       register: container_status
 
     - name: Show container status
@@ -309,7 +309,7 @@
     - name: Check app logs
       ansible.builtin.shell: docker-compose logs --tail=30 app
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       register: app_logs
 
     - name: Show app logs
@@ -322,18 +322,18 @@
 
     - name: Create monitoring directory
       ansible.builtin.file:
-        path: "{{ app_dir }}/monitoring"
+        path: '{{ app_dir }}/monitoring'
         state: directory
         owner: ansible
         group: ansible
-        mode: "0755"
+        mode: '0755'
 
     - name: Create prometheus.yml config file
       ansible.builtin.copy:
-        dest: "{{ app_dir }}/monitoring/prometheus.yml"
+        dest: '{{ app_dir }}/monitoring/prometheus.yml'
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         content: |
           global:
             scrape_interval: 10s
@@ -358,10 +358,10 @@
 
     - name: Create docker-compose-monitor.yml
       ansible.builtin.copy:
-        dest: "{{ app_dir }}/docker-compose-monitor.yml"
+        dest: '{{ app_dir }}/docker-compose-monitor.yml'
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         content: |
           services:
             prometheus:
@@ -425,7 +425,7 @@
     - name: Stop Monitoring Stack if running (idempotent)
       ansible.builtin.shell: docker-compose -f docker-compose-monitor.yml down
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       failed_when: false
 
     - name: Force clean Grafana data to prevent permission loops
@@ -438,27 +438,27 @@
 
     - name: Recreate and set ownership for Grafana data directory
       ansible.builtin.file:
-        path: "{{ app_dir }}/x-data/grafana"
+        path: '{{ app_dir }}/x-data/grafana'
         state: directory
         owner: 472
         group: 472
-        mode: "0755"
+        mode: '0755'
 
     - name: Recreate and set ownership for Prometheus data directory
       ansible.builtin.file:
-        path: "{{ app_dir }}/x-data/prometheus"
+        path: '{{ app_dir }}/x-data/prometheus'
         state: directory
         owner: 65534
         group: 65534
-        mode: "0755"
+        mode: '0755'
 
     - name: Ensure Grafana provisioning directories exist
       ansible.builtin.file:
-        path: "{{ app_dir }}/provisioning/{{ item }}"
+        path: '{{ app_dir }}/provisioning/{{ item }}'
         state: directory
         owner: ansible
         group: ansible
-        mode: "0755"
+        mode: '0755'
       with_items:
         - datasources
         - dashboards
@@ -466,10 +466,10 @@
 
     - name: Provision Prometheus datasource (Grafana)
       ansible.builtin.copy:
-        dest: "{{ app_dir }}/provisioning/datasources/prometheus.yml"
+        dest: '{{ app_dir }}/provisioning/datasources/prometheus.yml'
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         content: |
           apiVersion: 1
           datasources:
@@ -483,10 +483,10 @@
 
     - name: Provision dashboards provider (Grafana)
       ansible.builtin.copy:
-        dest: "{{ app_dir }}/provisioning/dashboards/dashboards.yml"
+        dest: '{{ app_dir }}/provisioning/dashboards/dashboards.yml'
         owner: ansible
         group: ansible
-        mode: "0644"
+        mode: '0644'
         content: |
           apiVersion: 1
           providers:
@@ -506,7 +506,7 @@
     - name: Start Monitoring Stack
       ansible.builtin.shell: docker-compose -f docker-compose-monitor.yml up -d
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
 
     - name: Wait for monitoring services to start
       ansible.builtin.pause:
@@ -515,7 +515,7 @@
     - name: Check monitoring stack status
       ansible.builtin.shell: docker-compose -f docker-compose-monitor.yml ps
       args:
-        chdir: "{{ app_dir }}"
+        chdir: '{{ app_dir }}'
       register: monitoring_status
 
     - name: Show monitoring stack status
@@ -525,8 +525,8 @@
     - name: Display access information
       ansible.builtin.debug:
         msg:
-          - "=== Deployment Complete ==="
-          - "App: http://{{ ansible_host }}:3000"
-          - "Grafana: http://{{ ansible_host }}:3001 (admin/admin)"
-          - "Prometheus: http://{{ ansible_host }}:9090"
-          - "Metrics Endpoint: http://{{ ansible_host }}:3000/api/metrics"
+          - '=== Deployment Complete ==='
+          - 'App: http://{{ ansible_host }}:3000'
+          - 'Grafana: http://{{ ansible_host }}:3001 (admin/admin)'
+          - 'Prometheus: http://{{ ansible_host }}:9090'
+          - 'Metrics Endpoint: http://{{ ansible_host }}:3000/api/metrics'
