@@ -1,0 +1,4 @@
+ansible>=2.15.0
+ansible-core>=2.15.0
+proxmoxer>=2.0.0
+requests>=2.32.0
